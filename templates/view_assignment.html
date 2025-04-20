@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.css" rel="stylesheet">
+<style>
+    .question-container {
+        transition: all 0.3s ease;
+    }
+    .question-container:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    .feedback {
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 0.5rem;
+    }
+    .feedback.correct {
+        background-color: #D1FAE5;
+        color: #065F46;
+    }
+    .feedback.incorrect {
+        background-color: #FEE2E2;
+        color: #991B1B;
+    }
+    .ordering-item {
+        cursor: move;
+        padding: 0.5rem;
+        margin: 0.5rem 0;
+        background-color: white;
+        border: 1px solid #E5E7EB;
+        border-radius: 0.5rem;
+    }
+    .drag-drop-container {
+        min-height: 100px;
+        border: 2px dashed #E5E7EB;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    .drag-drop-item {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        margin: 0.25rem;
+        background-color: #F3F4F6;
+        border: 1px solid #E5E7EB;
+        border-radius: 0.375rem;
+        cursor: move;
+    }
+    .topic-section {
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        background-color: #F9FAFB;
+        border-radius: 0.5rem;
+    }
+    .subtopic-section {
+        margin: 1rem 0;
+        padding: 1rem;
+        background-color: white;
+        border-radius: 0.5rem;
+        border: 1px solid #E5E7EB;
+    }
+    .progress-bar {
+        height: 0.5rem;
+        background-color: #E5E7EB;
+        border-radius: 0.25rem;
+        overflow: hidden;
+    }
+    .progress-fill {
+        height: 100%;
+        background-color: #10B981;
+        transition: width 0.3s ease;
+    }
+    .answer-display {
+        margin-top: 1rem;
+        padding: 1rem;
+        background-color: #F0F9FF;
+        border-radius: 0.5rem;
+        border: 1px solid #BAE6FD;
+    }
+    .question-score {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-weight: 600;
+    }
+    .score-correct {
+        background-color: #D1FAE5;
+        color: #065F46;
+    }
+    .score-incorrect {
+        background-color: #FEE2E2;
+        color: #991B1B;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div class="flex justify-between items-start">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">{{ assignment.title }}</h1>
+                {% if assignment.description %}
+                <p class="text-gray-600 mb-4">{{ assignment.description }}</p>
+                {% endif %}
+                <div class="text-sm text-gray-500">
+                    <span>Due: {{ assignment.due_date.strftime('%Y-%m-%d %H:%M') }}</span>
+                </div>
+            </div>
+            {% if assignment.completed %}
+            <div class="text-right">
+                <div class="text-lg font-bold {% if assignment.earned_points/assignment.total_points >= 0.7 %}text-green-600{% elif assignment.earned_points/assignment.total_points >= 0.5 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                    Score: {{ assignment.earned_points }}/{{ assignment.total_points }}
+                    ({{ (assignment.earned_points/assignment.total_points*100)|round|int }}%)
+                </div>
+                <div class="text-sm text-gray-500 mt-1">Assignment completed</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <form id="assignment-form" class="space-y-6" {% if assignment.completed and not edit_mode %}data-readonly="true"{% endif %}>
+        {% set topics = {} %}
+        {% for question in assignment.questions %}
+            {% if question.topic not in topics %}
+                {% set _ = topics.update({question.topic: {}}) %}
+            {% endif %}
+            {% if question.subtopic not in topics[question.topic] %}
+                {% set _ = topics[question.topic].update({question.subtopic: []}) %}
+            {% endif %}
+            {% set _ = topics[question.topic][question.subtopic].append(question) %}
+        {% endfor %}
+
+        {% set student_answers = {} %}
+        {% if assignment.student_answer %}
+            {% set student_answers = assignment.student_answer|fromjson %}
+        {% endif %}
+
+        {% set feedback_data = {} %}
+        {% if assignment.ai_feedback %}
+            {% set feedback_data = assignment.ai_feedback|fromjson %}
+        {% endif %}
+
+        {% for topic, subtopics in topics.items() %}
+        <div class="topic-section">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">{{ topic }}</h2>
+            
+            {% for subtopic, questions in subtopics.items() %}
+            <div class="subtopic-section">
+                <h3 class="text-xl font-semibold text-gray-700 mb-4">{{ subtopic }}</h3>
+                
+                {% for question in questions %}
+                {% set question_id = 'q' + question.id|string %}
+                {% set question_feedback = (feedback_data | selectattr('question_id', 'equalto', question_id) | first) %}
+                {% set is_correct = question_feedback.is_correct if question_feedback else false %}
+                
+                <div class="question-container bg-white rounded-lg shadow p-6 mb-4">
+                    <div class="flex justify-between items-start mb-4">
+                        <h4 class="text-lg font-semibold text-gray-800">Question {{ loop.index }}</h4>
+                        <div class="flex items-center">
+                            {% if assignment.completed %}
+                                <span class="question-score mr-2 {% if is_correct %}score-correct{% else %}score-incorrect{% endif %}">
+                                    {% if is_correct %}Correct{% else %}Incorrect{% endif %}
+                                </span>
+                            {% endif %}
+                            <span class="text-sm text-gray-500">{{ question.points }} points</span>
+                        </div>
+                    </div>
+                    
+                    <p class="text-gray-700 mb-4">{{ question.question_text }}</p>
+                    
+                    {% if question.question_type == 'multiple_choice' %}
+                    <div class="space-y-2">
+                        {% for option in question.options %}
+                        <label class="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <input type="radio" name="q{{ question.id }}" value="{{ option }}" 
+                                  {% if student_answers and question_id in student_answers and student_answers[question_id] == option %}checked{% endif %}
+                                  {% if assignment.completed and not edit_mode %}disabled{% endif %}
+                                  class="text-indigo-600 focus:ring-indigo-500">
+                            <span class="text-gray-700">{{ option }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    
+                    {% elif question.question_type == 'fill_blank' %}
+                    <div class="mt-2">
+                        <input type="text" name="q{{ question.id }}" 
+                               class="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                               placeholder="Enter your answer"
+                               {% if student_answers and question_id in student_answers %}value="{{ student_answers[question_id] }}"{% endif %}
+                               {% if assignment.completed and not edit_mode %}readonly{% endif %}>
+                    </div>
+                    
+                    {% elif question.question_type == 'ordering' %}
+                    <div id="ordering-{{ question.id }}" class="space-y-2" {% if assignment.completed and not edit_mode %}data-readonly="true"{% endif %}>
+                        {% if student_answers and question_id in student_answers %}
+                            {% set order_values = student_answers[question_id]|fromjson if student_answers[question_id] is string else student_answers[question_id] %}
+                            {% for option in order_values %}
+                            <div class="ordering-item" data-value="{{ option }}">{{ option }}</div>
+                            {% endfor %}
+                        {% else %}
+                            {% for option in question.options %}
+                            <div class="ordering-item" data-value="{{ option }}">{{ option }}</div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    <input type="hidden" name="q{{ question.id }}" id="ordering-input-{{ question.id }}"
+                           value="{% if student_answers and question_id in student_answers %}{{ student_answers[question_id] }}{% else %}{{ question.options|tojson }}{% endif %}">
+                    
+                    {% elif question.question_type == 'drag_drop' %}
+                    <div class="mb-4">
+                        <div class="drag-drop-container" id="dropzone-{{ question.id }}">
+                            {% if student_answers and question_id in student_answers %}
+                                {% set drop_values = student_answers[question_id]|fromjson if student_answers[question_id] is string else student_answers[question_id] %}
+                                {% for option in drop_values %}
+                                <div class="drag-drop-item" draggable="{% if assignment.completed and not edit_mode %}false{% else %}true{% endif %}" data-value="{{ option }}">{{ option }}</div>
+                                {% endfor %}
+                            {% else %}
+                            <div class="text-gray-500 text-center">Drag items here</div>
+                            {% endif %}
+                        </div>
+                        <div class="flex flex-wrap gap-2" {% if assignment.completed and not edit_mode %}style="display: none;"{% endif %}>
+                            {% for option in question.options %}
+                            <div class="drag-drop-item" draggable="true" data-value="{{ option }}">{{ option }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <input type="hidden" name="q{{ question.id }}" id="drag-drop-input-{{ question.id }}"
+                           value="{% if student_answers and question_id in student_answers %}{{ student_answers[question_id] }}{% else %}[]{% endif %}">
+                    
+                    {% elif question.question_type == 'short_answer' %}
+                    <div class="mt-2">
+                        <textarea name="q{{ question.id }}" rows="3"
+                                  class="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="Enter your answer"
+                                  {% if assignment.completed and not edit_mode %}readonly{% endif %}>{% if student_answers and question_id in student_answers %}{{ student_answers[question_id] }}{% endif %}</textarea>
+                    </div>
+                    
+                    {% elif question.question_type == 'long_answer' %}
+                    <div class="mt-2">
+                        <textarea name="q{{ question.id }}" rows="6"
+                                  class="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  placeholder="Enter your detailed answer"
+                                  {% if assignment.completed and not edit_mode %}readonly{% endif %}>{% if student_answers and question_id in student_answers %}{{ student_answers[question_id] }}{% endif %}</textarea>
+                    </div>
+                    {% endif %}
+                    
+                    {% if assignment.completed %}
+                    <div class="mt-4">
+                        {% if question.correct_answer %}
+                        <div class="answer-display">
+                            <h5 class="font-semibold text-gray-700 mb-1">Correct Answer:</h5>
+                            <p>{{ question.correct_answer }}</p>
+                        </div>
+                        {% endif %}
+                        
+                        {% if question_feedback %}
+                        <div class="feedback {% if is_correct %}correct{% else %}incorrect{% endif %}">
+                            <h5 class="font-semibold mb-1">Feedback:</h5>
+                            <p class="feedback-text">{{ question_feedback.feedback }}</p>
+                            {% if question.explanation %}
+                            <p class="mt-2 text-sm text-gray-600">{{ question.explanation }}</p>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="feedback" id="feedback-{{ question.id }}" style="display: none;">
+                        <p class="feedback-text"></p>
+                        {% if question.explanation %}
+                        <p class="mt-2 text-sm text-gray-600">{{ question.explanation }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+        
+        <div class="flex justify-end space-x-4">
+            {% if assignment.completed %}
+                {% if edit_mode %}
+                <button type="submit" 
+                        class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                    Resubmit Assignment
+                </button>
+                {% else %}
+                <a href="{{ url_for('assignments') }}" 
+                   class="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                    Back to Assignments
+                </a>
+                <a href="{{ url_for('view_assignment', id=assignment.id, edit=1) }}" 
+                   class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                    Edit Answers
+                </a>
+                {% endif %}
+            {% else %}
+            <button type="submit" 
+                    class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                Submit Assignment
+            </button>
+            {% endif %}
+        </div>
+    </form>
+
+    {% if assignment.completed and current_user.username == 'admin' %}
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6 mt-6">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">Answers Debug Information</h2>
+        <div class="overflow-auto bg-gray-100 p-4 rounded">
+            <h3 class="font-semibold mb-2">Raw Data</h3>
+            <p class="text-sm font-mono">Student Answers: {{ assignment.student_answer }}</p>
+            <p class="text-sm font-mono mt-2">Parsed Answers: {{ student_answers|tojson }}</p>
+            <p class="text-sm font-mono mt-2">Feedback: {{ assignment.ai_feedback }}</p>
+            <p class="text-sm font-mono mt-2">Parsed Feedback: {{ feedback_data|tojson }}</p>
+            
+            <h3 class="font-semibold mt-4 mb-2">Question Details</h3>
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="p-2 text-left">ID</th>
+                        <th class="p-2 text-left">Type</th>
+                        <th class="p-2 text-left">Student Answer</th>
+                        <th class="p-2 text-left">Correct Answer</th>
+                        <th class="p-2 text-left">Is Correct</th>
+                        <th class="p-2 text-left">Points</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for question in assignment.questions %}
+                    {% set q_id = 'q' + question.id|string %}
+                    {% set fb = none %}
+                    {% for f in feedback_data if f %}
+                        {% if f.question_id == q_id %}
+                            {% set fb = f %}
+                        {% endif %}
+                    {% endfor %}
+                    <tr class="border-b">
+                        <td class="p-2">{{ q_id }}</td>
+                        <td class="p-2">{{ question.question_type }}</td>
+                        <td class="p-2">{% if student_answers and q_id in student_answers %}{{ student_answers[q_id] }}{% else %}None{% endif %}</td>
+                        <td class="p-2">{{ question.correct_answer }}</td>
+                        <td class="p-2 {% if fb and fb.is_correct %}bg-green-100{% else %}bg-red-100{% endif %}">
+                            {% if fb %}{{ fb.is_correct }}{% else %}N/A{% endif %}
+                        </td>
+                        <td class="p-2">{{ question.points }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+// Initialize ordering questions
+document.querySelectorAll('[id^="ordering-"]').forEach(container => {
+    if (container.dataset.readonly === "true") return;
+    
+    new Sortable(container, {
+        animation: 150,
+        onEnd: function(evt) {
+            const questionId = container.id.split('-')[1];
+            const values = Array.from(container.children).map(item => item.dataset.value);
+            document.getElementById(`ordering-input-${questionId}`).value = JSON.stringify(values);
+        }
+    });
+});
+
+// Initialize drag and drop questions
+document.querySelectorAll('[id^="dropzone-"]').forEach(dropzone => {
+    const questionId = dropzone.id.split('-')[1];
+    const items = document.querySelectorAll(`[data-value]`);
+    const input = document.getElementById(`drag-drop-input-${questionId}`);
+    
+    // If there are already values, set them in the input
+    if (dropzone.querySelectorAll('.drag-drop-item').length > 0) {
+        const values = Array.from(dropzone.querySelectorAll('.drag-drop-item')).map(item => item.dataset.value);
+        input.value = JSON.stringify(values);
+    }
+    
+    // Skip the rest if we're in readonly mode
+    if (document.getElementById('assignment-form').dataset.readonly === "true") return;
+    
+    items.forEach(item => {
+        item.addEventListener('dragstart', e => {
+            e.dataTransfer.setData('text/plain', item.dataset.value);
+        });
+    });
+    
+    dropzone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropzone.classList.add('border-indigo-500');
+    });
+    
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('border-indigo-500');
+    });
+    
+    dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropzone.classList.remove('border-indigo-500');
+        const value = e.dataTransfer.getData('text/plain');
+        const values = JSON.parse(input.value || '[]');
+        values.push(value);
+        input.value = JSON.stringify(values);
+        
+        // Update dropzone content
+        const item = document.createElement('div');
+        item.className = 'drag-drop-item';
+        item.textContent = value;
+        dropzone.appendChild(item);
+    });
+});
+
+// Handle form submission
+const form = document.getElementById('assignment-form');
+if (form && !form.dataset.readonly) {
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // Check if an operation is already in progress
+        if (!ProgressTracker.startOperation('submit_assignment')) {
+            return;
+        }
+        
+        // Update progress - initial
+        ProgressTracker.updateProgress(20, "Processing your answers");
+        
+        const formData = new FormData(e.target);
+        const answers = {};
+        
+        for (let [key, value] of formData.entries()) {
+            if (key.startsWith('q')) {
+                answers[key] = value;
+            }
+        }
+        
+        try {
+            // Update progress - evaluating
+            ProgressTracker.updateProgress(40, "Evaluating your responses");
+            
+            const response = await axios.post(`/assignments/{{ assignment.id }}/submit`, { answers });
+            
+            // Update progress - processing feedback
+            ProgressTracker.updateProgress(75, "Processing feedback");
+            
+            // Show feedback for each question
+            if (response.data.feedback) {
+                response.data.feedback.forEach(feedback => {
+                    const feedbackEl = document.getElementById(`feedback-${feedback.question_id}`);
+                    if (feedbackEl) {
+                        const feedbackText = feedbackEl.querySelector('.feedback-text');
+                        
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.classList.add(feedback.is_correct ? 'correct' : 'incorrect');
+                        feedbackText.textContent = feedback.feedback;
+                    }
+                });
+            }
+            
+            // Complete successfully
+            const scoreMessage = `Score: ${response.data.earned_points}/${response.data.total_points} (${Math.round(response.data.earned_points/response.data.total_points*100)}%)`;
+            ProgressTracker.endOperation(true, `Assignment submitted! ${scoreMessage}`);
+            
+            // Reload after a brief delay to show the score
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } catch (error) {
+            ProgressTracker.endOperation(false, 'Error submitting assignment. Please try again.');
+            console.error('Error:', error);
+        }
+    });
+}
+</script>
+{% endblock %}
+{% endblock %} 

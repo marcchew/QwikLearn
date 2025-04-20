@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<style>
+    .chat-container {
+        height: calc(100vh - 300px);
+    }
+    .message {
+        max-width: 80%;
+        margin-bottom: 1rem;
+    }
+    .user-message {
+        background-color: #e2e8f0;
+        margin-left: auto;
+    }
+    .ai-message {
+        background-color: #4f46e5;
+        color: white;
+        margin-right: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">AI Learning Assistant</h1>
+    
+    <div class="bg-white rounded-lg shadow-lg p-4">
+        <div id="chat-messages" class="chat-container overflow-y-auto mb-4">
+            <div class="ai-message message rounded-lg p-3">
+                Hello! I'm your AI learning assistant. How can I help you today?
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-2">
+            <input type="text" id="message-input" 
+                   class="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                   placeholder="Type your message here...">
+            <button onclick="sendMessage()" 
+                    class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                Send
+            </button>
+        </div>
+    </div>
+</div>
+
+{% block extra_scripts %}
+<script>
+const messageInput = document.getElementById('message-input');
+const chatMessages = document.getElementById('chat-messages');
+
+messageInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+});
+
+function appendMessage(content, isUser) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message rounded-lg p-3 ${isUser ? 'user-message' : 'ai-message'}`;
+    messageDiv.textContent = content;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+async function sendMessage() {
+    const message = messageInput.value.trim();
+    if (!message) return;
+    
+    appendMessage(message, true);
+    messageInput.value = '';
+    
+    try {
+        const response = await axios.post('/chat', {
+            message: message
+        });
+        
+        appendMessage(response.data.response, false);
+    } catch (error) {
+        appendMessage('Sorry, I encountered an error. Please try again.', false);
+        console.error('Error:', error);
+    }
+}
+</script>
+{% endblock %}
+{% endblock %} 

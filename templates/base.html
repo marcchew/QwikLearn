@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QwikLearn</title>
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="description" content="AI-powered learning platform to help you study more effectively">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AI Learning">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/icon-192x192.png') }}">
+    <link rel="apple-touch-icon" sizes="152x152" href="{{ url_for('static', filename='images/icon-152x152.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/icon-180x180.png') }}">
+    <link rel="apple-touch-icon" sizes="167x167" href="{{ url_for('static', filename='images/icon-167x167.png') }}">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='images/favicon-16x16.png') }}">
+    
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex justify-between">
+                <div class="flex space-x-7">
+                    <div>
+                        <a href="{{ url_for('index') }}" class="flex items-center py-4">
+                            <span class="font-semibold text-gray-500 text-lg">QwikLearn</span>
+                        </a>
+                    </div>
+                    {% if current_user.is_authenticated %}
+                    <div class="hidden md:flex items-center space-x-1">
+                        <a href="{{ url_for('dashboard') }}" class="py-4 px-2 text-gray-500 hover:text-indigo-600 transition duration-300">Dashboard</a>
+                        <a href="{{ url_for('syllabi') }}" class="py-4 px-2 text-gray-500 hover:text-indigo-600 transition duration-300">Syllabi</a>
+                        <a href="{{ url_for('assignments') }}" class="py-4 px-2 text-gray-500 hover:text-indigo-600 transition duration-300">Assignments</a>
+                        <a href="{{ url_for('todos') }}" class="py-4 px-2 text-gray-500 hover:text-indigo-600 transition duration-300">To-Dos</a>
+                        <a href="{{ url_for('calendar') }}" class="py-4 px-2 text-gray-500 hover:text-indigo-600 transition duration-300">Calendar</a>
+                        <a href="{{ url_for('study_plans') }}" class="py-4 px-2 text-gray-500 hover:text-indigo-600 transition duration-300">Study Plans</a>
+                        <a href="{{ url_for('chat') }}" class="py-4 px-2 text-gray-500 hover:text-indigo-600 transition duration-300">Chat</a>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="hidden md:flex items-center space-x-3">
+                    {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('logout') }}" class="py-2 px-4 text-gray-500 hover:text-indigo-600 transition duration-300">Logout</a>
+                    {% else %}
+                    <a href="{{ url_for('login') }}" class="py-2 px-4 text-gray-500 hover:text-indigo-600 transition duration-300">Login</a>
+                    <a href="{{ url_for('register') }}" class="py-2 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-300">Register</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-6 py-8">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="mb-4 p-4 rounded-lg {% if category == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-gray-800 text-white mt-auto">
+        <div class="container mx-auto px-6 py-4">
+            <p class="text-center">&copy; 2025 QwikLearn. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- PWA Service Worker Registration -->
+    <script src="{{ url_for('static', filename='js/register-sw.js') }}"></script>
+    {% block extra_scripts %}{% endblock %}
+    
+    <!-- Global Progress Tracker -->
+    <div id="globalProgressOverlay" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h3 id="progressTitle" class="text-lg font-bold text-gray-800 mb-3">Processing...</h3>
+            <div class="mb-4">
+                <div class="w-full bg-gray-200 rounded-full h-4">
+                    <div id="progressBar" class="bg-indigo-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p id="progressText" class="text-sm text-gray-600 mt-2">Starting operation...</p>
+            </div>
+            <p id="progressInfo" class="text-xs text-gray-500 italic">This may take a moment. Please don't close this window.</p>
+        </div>
+    </div>
+    
+    <script>
+        // Global operation tracker
+        const ProgressTracker = {
+            // Current operation info
+            currentOperation: null,
+            isOperationInProgress: false,
+            
+            // Operations registry - to prevent multiple operations
+            operations: {
+                generate_notes: { name: "Generating Notes", steps: ["Processing syllabus", "Creating structured notes", "Saving notes"] },
+                generate_assignment: { name: "Generating Assignment", steps: ["Analyzing syllabus", "Creating questions", "Finalizing assignment"] },
+                generate_study_plan: { name: "Generating Study Plan", steps: ["Analyzing materials", "Creating schedule", "Finalizing plan"] },
+                submit_assignment: { name: "Submitting Assignment", steps: ["Processing answers", "Evaluating responses", "Saving results"] },
+                upload_file: { name: "Processing File", steps: ["Uploading file", "Extracting content", "Processing text"] }
+            },
+            
+            // Start a new operation
+            startOperation: function(operationType) {
+                // Check if another operation is in progress
+                if (this.isOperationInProgress) {
+                    alert("Another operation is currently in progress. Please wait for it to complete.");
+                    return false;
+                }
+                
+                // Set operation in progress
+                this.isOperationInProgress = true;
+                this.currentOperation = operationType;
+                
+                // Get operation details
+                const operation = this.operations[operationType];
+                if (!operation) {
+                    console.error("Unknown operation type:", operationType);
+                    return false;
+                }
+                
+                // Show the overlay
+                const overlay = document.getElementById('globalProgressOverlay');
+                const progressTitle = document.getElementById('progressTitle');
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+                
+                progressTitle.textContent = operation.name;
+                progressBar.style.width = "5%";
+                progressText.textContent = operation.steps[0];
+                overlay.classList.remove('hidden');
+                
+                return true;
+            },
+            
+            // Update progress
+            updateProgress: function(percent, message) {
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+                
+                progressBar.style.width = `${percent}%`;
+                if (message) {
+                    progressText.textContent = message;
+                }
+            },
+            
+            // End the operation
+            endOperation: function(success = true, message = "") {
+                // Get elements
+                const overlay = document.getElementById('globalProgressOverlay');
+                const progressTitle = document.getElementById('progressTitle');
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+                
+                if (success) {
+                    // Complete the progress bar
+                    progressBar.style.width = "100%";
+                    progressTitle.textContent = "Complete!";
+                    progressText.textContent = message || "Operation completed successfully.";
+                    
+                    // Hide after a delay
+                    setTimeout(() => {
+                        overlay.classList.add('hidden');
+                        this.resetTracker();
+                    }, 1000);
+                } else {
+                    // Show error state
+                    progressBar.style.width = "100%";
+                    progressBar.classList.remove('bg-indigo-600');
+                    progressBar.classList.add('bg-red-600');
+                    progressTitle.textContent = "Error";
+                    progressText.textContent = message || "An error occurred.";
+                    
+                    // Add a close button
+                    const infoText = document.getElementById('progressInfo');
+                    infoText.innerHTML = '<button class="mt-2 px-4 py-1 bg-gray-200 rounded text-sm" onclick="ProgressTracker.dismissError()">Dismiss</button>';
+                }
+            },
+            
+            // Dismiss error
+            dismissError: function() {
+                const overlay = document.getElementById('globalProgressOverlay');
+                overlay.classList.add('hidden');
+                this.resetTracker();
+            },
+            
+            // Reset the tracker
+            resetTracker: function() {
+                this.isOperationInProgress = false;
+                this.currentOperation = null;
+                
+                // Reset UI elements
+                const progressBar = document.getElementById('progressBar');
+                progressBar.classList.remove('bg-red-600');
+                progressBar.classList.add('bg-indigo-600');
+                progressBar.style.width = "0%";
+                
+                const infoText = document.getElementById('progressInfo');
+                infoText.textContent = "This may take a moment. Please don't close this window.";
+            }
+        };
+    </script>
+    
+    <!-- App install prompt for PWA -->
+    <div id="installPWA" class="fixed bottom-0 left-0 right-0 bg-indigo-600 text-white p-4 rounded-t-lg shadow-lg transform translate-y-full transition-transform duration-300 hidden">
+        <div class="flex justify-between items-center">
+            <div>
+                <h3 class="font-bold">Install AI Learning App</h3>
+                <p class="text-sm">Install this app on your device for quick access</p>
+            </div>
+            <div class="flex">
+                <button id="installCancel" class="px-3 py-1 mr-2 bg-indigo-700 rounded">Later</button>
+                <button id="installAccept" class="px-3 py-1 bg-white text-indigo-600 rounded">Install</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // PWA Install Prompt
+        let deferredPrompt;
+        const installPrompt = document.getElementById('installPWA');
+        const installAccept = document.getElementById('installAccept');
+        const installCancel = document.getElementById('installCancel');
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent Chrome 67 and earlier from automatically showing the prompt
+            e.preventDefault();
+            // Stash the event so it can be triggered later
+            deferredPrompt = e;
+            // Show the install prompt
+            installPrompt.classList.remove('hidden');
+            installPrompt.classList.remove('translate-y-full');
+        });
+        
+        installAccept.addEventListener('click', (e) => {
+            // Hide the app install prompt
+            installPrompt.classList.add('translate-y-full');
+            // Show the native prompt
+            deferredPrompt.prompt();
+            // Wait for the user to respond to the prompt
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                } else {
+                    console.log('User dismissed the install prompt');
+                }
+                deferredPrompt = null;
+            });
+        });
+        
+        installCancel.addEventListener('click', (e) => {
+            // Hide the app install prompt
+            installPrompt.classList.add('translate-y-full');
+            // Optionally add a timeout to hide it fully after animation
+            setTimeout(() => {
+                installPrompt.classList.add('hidden');
+            }, 300);
+        });
+    </script>
+</body>
+</html> 

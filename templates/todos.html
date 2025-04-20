@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.css" rel="stylesheet">
+<style>
+    .priority-high { border-left: 4px solid #ef4444; }
+    .priority-medium { border-left: 4px solid #f59e0b; }
+    .priority-low { border-left: 4px solid #10b981; }
+    .completed { opacity: 0.6; }
+    .todo-item { cursor: move; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">My To-Dos</h1>
+        <button onclick="showAddTodoModal()" 
+                class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+            Add New Todo
+        </button>
+    </div>
+    
+    <!-- Add Todo Modal -->
+    <div id="add-todo-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
+            <h2 class="text-2xl font-bold mb-4">Add New Todo</h2>
+            <form id="add-todo-form" onsubmit="addTodo(event)">
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="title">Title</label>
+                    <input type="text" id="title" name="title" required
+                           class="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="description">Description</label>
+                    <textarea id="description" name="description" rows="3"
+                            class="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2" for="due_date">Due Date</label>
+                    <input type="datetime-local" id="due_date" name="due_date"
+                           class="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-gray-700 mb-2">Priority</label>
+                    <div class="flex space-x-4">
+                        <label class="flex items-center">
+                            <input type="radio" name="priority" value="0" class="mr-2" checked>
+                            Low
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="priority" value="1" class="mr-2">
+                            Medium
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="priority" value="2" class="mr-2">
+                            High
+                        </label>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-4">
+                    <button type="button" onclick="hideAddTodoModal()"
+                            class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                        Add Todo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Todo Lists -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">High Priority</h2>
+            <div id="high-priority" class="space-y-2">
+                {% for todo in todos if todo.priority == 2 %}
+                <div class="todo-item priority-high bg-white p-4 rounded-lg shadow" data-id="{{ todo.id }}">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="font-semibold">{{ todo.title }}</h3>
+                            {% if todo.description %}
+                            <p class="text-gray-600 text-sm mt-1">{{ todo.description }}</p>
+                            {% endif %}
+                            {% if todo.due_date %}
+                            <p class="text-gray-500 text-sm mt-2">Due: {{ todo.due_date.strftime('%Y-%m-%d %H:%M') }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="checkbox" 
+                                   onchange="toggleTodo({{ todo.id }}, this.checked)"
+                                   {% if todo.completed %}checked{% endif %}
+                                   class="rounded text-indigo-600 focus:ring-indigo-500">
+                            <button onclick="deleteTodo({{ todo.id }})"
+                                    class="text-red-500 hover:text-red-700">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Medium Priority</h2>
+            <div id="medium-priority" class="space-y-2">
+                {% for todo in todos if todo.priority == 1 %}
+                <div class="todo-item priority-medium bg-white p-4 rounded-lg shadow" data-id="{{ todo.id }}">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="font-semibold">{{ todo.title }}</h3>
+                            {% if todo.description %}
+                            <p class="text-gray-600 text-sm mt-1">{{ todo.description }}</p>
+                            {% endif %}
+                            {% if todo.due_date %}
+                            <p class="text-gray-500 text-sm mt-2">Due: {{ todo.due_date.strftime('%Y-%m-%d %H:%M') }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="checkbox" 
+                                   onchange="toggleTodo({{ todo.id }}, this.checked)"
+                                   {% if todo.completed %}checked{% endif %}
+                                   class="rounded text-indigo-600 focus:ring-indigo-500">
+                            <button onclick="deleteTodo({{ todo.id }})"
+                                    class="text-red-500 hover:text-red-700">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Low Priority</h2>
+            <div id="low-priority" class="space-y-2">
+                {% for todo in todos if todo.priority == 0 %}
+                <div class="todo-item priority-low bg-white p-4 rounded-lg shadow" data-id="{{ todo.id }}">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="font-semibold">{{ todo.title }}</h3>
+                            {% if todo.description %}
+                            <p class="text-gray-600 text-sm mt-1">{{ todo.description }}</p>
+                            {% endif %}
+                            {% if todo.due_date %}
+                            <p class="text-gray-500 text-sm mt-2">Due: {{ todo.due_date.strftime('%Y-%m-%d %H:%M') }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="checkbox" 
+                                   onchange="toggleTodo({{ todo.id }}, this.checked)"
+                                   {% if todo.completed %}checked{% endif %}
+                                   class="rounded text-indigo-600 focus:ring-indigo-500">
+                            <button onclick="deleteTodo({{ todo.id }})"
+                                    class="text-red-500 hover:text-red-700">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Sortable for each priority list
+    ['high-priority', 'medium-priority', 'low-priority'].forEach(function(listId) {
+        const container = document.getElementById(listId);
+        if (container) {
+            new Sortable(container, {
+                animation: 150,
+                onEnd: function(evt) {
+                    const todoId = evt.item.dataset.id;
+                    const newPriority = listId === 'high-priority' ? 2 : 
+                                      listId === 'medium-priority' ? 1 : 0;
+                    updateTodoPriority(todoId, newPriority);
+                }
+            });
+        }
+    });
+});
+
+function showAddTodoModal() {
+    document.getElementById('add-todo-modal').classList.remove('hidden');
+}
+
+function hideAddTodoModal() {
+    document.getElementById('add-todo-modal').classList.add('hidden');
+}
+
+async function addTodo(event) {
+    event.preventDefault();
+    
+    // Get the selected priority radio button
+    const priorityElement = document.querySelector('input[name="priority"]:checked');
+    if (!priorityElement) {
+        alert('Please select a priority level');
+        return;
+    }
+    
+    const formData = {
+        title: document.getElementById('title').value,
+        description: document.getElementById('description').value,
+        due_date: document.getElementById('due_date').value,
+        priority: parseInt(priorityElement.value)
+    };
+    
+    try {
+        const response = await axios.post('/todos', formData);
+        window.location.reload();
+    } catch (error) {
+        alert('Error adding todo. Please try again.');
+        console.error('Error:', error);
+    }
+}
+
+async function toggleTodo(id, completed) {
+    try {
+        await axios.put(`/todos/${id}`, { completed });
+        const todoItem = document.querySelector(`[data-id="${id}"]`);
+        if (todoItem) {
+            if (completed) {
+                todoItem.classList.add('completed');
+            } else {
+                todoItem.classList.remove('completed');
+            }
+        }
+    } catch (error) {
+        alert('Error updating todo. Please try again.');
+        console.error('Error:', error);
+    }
+}
+
+async function deleteTodo(id) {
+    if (!confirm('Are you sure you want to delete this todo?')) return;
+    
+    try {
+        await axios.delete(`/todos/${id}`);
+        const todoItem = document.querySelector(`[data-id="${id}"]`);
+        if (todoItem) {
+            todoItem.remove();
+        }
+    } catch (error) {
+        alert('Error deleting todo. Please try again.');
+        console.error('Error:', error);
+    }
+}
+
+async function updateTodoPriority(id, priority) {
+    try {
+        await axios.put(`/todos/${id}`, { priority });
+    } catch (error) {
+        alert('Error updating todo priority. Please try again.');
+        console.error('Error:', error);
+    }
+}
+</script>
+{% endblock %} 

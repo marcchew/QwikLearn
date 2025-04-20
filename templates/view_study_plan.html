@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}
+<style>
+    .study-session {
+        background-color: #d4edda;
+        border-left: 4px solid #28a745;
+    }
+    
+    .assignment-session {
+        background-color: #f8d7da;
+        border-left: 4px solid #dc3545;
+    }
+    
+    .break-session {
+        background-color: #cfe2ff;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .review-session {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+    }
+    
+    .todo-session {
+        background-color: #e2e3e5;
+        border-left: 4px solid #6c757d;
+    }
+    
+    .session-card {
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    
+    .day-column {
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1.25rem;
+    }
+    
+    .session-time {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .day-header {
+        background-color: #e9ecef;
+        padding: 0.5rem;
+        border-top-left-radius: 0.5rem;
+        border-top-right-radius: 0.5rem;
+        margin: -1rem -1rem 1rem -1rem;
+    }
+    
+    @media print {
+        .no-print {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 mt-6">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">{{ plan.title }}</h1>
+        <div>
+            <button class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 no-print mr-2" onclick="window.print()">Print</button>
+            <a href="{{ url_for('study_plans') }}" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 no-print">Back to Plans</a>
+        </div>
+    </div>
+    
+    <div class="mb-6 no-print">
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex flex-wrap">
+                <div class="mr-4 mb-2">
+                    <span class="inline-block w-5 h-5 rounded study-session"></span>
+                    <span class="ml-1">Study</span>
+                </div>
+                <div class="mr-4 mb-2">
+                    <span class="inline-block w-5 h-5 rounded assignment-session"></span>
+                    <span class="ml-1">Assignment</span>
+                </div>
+                <div class="mr-4 mb-2">
+                    <span class="inline-block w-5 h-5 rounded break-session"></span>
+                    <span class="ml-1">Break</span>
+                </div>
+                <div class="mr-4 mb-2">
+                    <span class="inline-block w-5 h-5 rounded review-session"></span>
+                    <span class="ml-1">Review</span>
+                </div>
+                <div class="mb-2">
+                    <span class="inline-block w-5 h-5 rounded todo-session"></span>
+                    <span class="ml-1">Todo</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {% set plan_data = plan.content|fromjson %}
+        {% for day in plan_data.days %}
+            <div class="day-column">
+                <div class="day-header">
+                    <h4 class="font-bold m-0 text-center">{{ day.date }}</h4>
+                </div>
+                
+                {% for session in day.sessions %}
+                    <div class="session-card {{ session.activity_type }}-session">
+                        <div class="flex justify-between items-start">
+                            <h5 class="font-bold text-gray-800 mb-1">{{ session.title }}</h5>
+                            <span class="session-time">{{ session.start_time }} - {{ session.end_time }}</span>
+                        </div>
+                        <p class="mb-2 text-gray-700">{{ session.description }}</p>
+                        
+                        {% if session.activity_type == 'assignment' and session.assignment_id %}
+                            <a href="{{ url_for('view_assignment', id=session.assignment_id) }}" 
+                               class="inline-block px-2 py-1 text-xs border border-red-600 text-red-600 rounded hover:bg-red-600 hover:text-white no-print mt-1">
+                                View Assignment
+                            </a>
+                        {% endif %}
+                        
+                        {% if session.activity_type == 'study' and session.syllabus_id %}
+                            <a href="{{ url_for('view_syllabus', id=session.syllabus_id) }}" 
+                               class="inline-block px-2 py-1 text-xs border border-green-600 text-green-600 rounded hover:bg-green-600 hover:text-white no-print mt-1">
+                                View Syllabus
+                            </a>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                
+                {% if day.sessions|length == 0 %}
+                    <div class="bg-gray-100 text-gray-600 p-3 rounded text-center">
+                        <p class="m-0">No activities scheduled</p>
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %} 

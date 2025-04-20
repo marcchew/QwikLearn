@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<style>
+    .upload-area {
+        border: 2px dashed #E5E7EB;
+        border-radius: 0.5rem;
+        padding: 2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .upload-area:hover {
+        border-color: #4F46E5;
+        background-color: #F9FAFB;
+    }
+    .upload-area.dragover {
+        border-color: #4F46E5;
+        background-color: #EEF2FF;
+    }
+    .file-input {
+        display: none;
+    }
+    .syllabus-card {
+        transition: all 0.3s ease;
+    }
+    .syllabus-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-4">My Syllabi</h1>
+        
+        <!-- Upload Area -->
+        <div class="upload-area mb-8" id="upload-area">
+            <input type="file" id="file-input" class="file-input" accept=".pdf">
+            <div class="text-gray-600">
+                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <p class="mt-2">Drag and drop your PDF syllabus here, or click to select</p>
+                <p class="text-sm text-gray-500">Only PDF files are supported</p>
+            </div>
+        </div>
+        
+        <!-- Syllabus List -->
+        <div class="grid gap-6">
+            {% for syllabus in syllabi %}
+            <div class="syllabus-card bg-white rounded-lg shadow p-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-800">{{ syllabus.title }}</h2>
+                        <p class="text-sm text-gray-500 mt-1">Created: {{ syllabus.created_at.strftime('%Y-%m-%d') }}</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        {% if syllabus.file_path %}
+                        <a href="{{ url_for('download_syllabus', id=syllabus.id) }}" 
+                           class="text-indigo-600 hover:text-indigo-800">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                        </a>
+                        {% endif %}
+                        <a href="{{ url_for('view_syllabus', id=syllabus.id) }}" 
+                           class="text-indigo-600 hover:text-indigo-800">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                            </svg>
+                        </a>
+                        <button onclick="deleteSyllabus({{ syllabus.id }}, '{{ syllabus.title }}')" 
+                                class="text-red-600 hover:text-red-800">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div id="confirm-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Confirm Deletion</h3>
+        <p class="text-gray-600 mb-6">Are you sure you want to delete "<span id="syllabus-name"></span>"? This action cannot be undone.</p>
+        <div class="flex justify-end space-x-4">
+            <button onclick="closeDeleteModal()" 
+                    class="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300 transition-colors">
+                Cancel
+            </button>
+            <button id="confirm-delete-btn" 
+                    class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors">
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+{% block extra_scripts %}
+<script>
+const uploadArea = document.getElementById('upload-area');
+const fileInput = document.getElementById('file-input');
+const confirmModal = document.getElementById('confirm-modal');
+const syllabusName = document.getElementById('syllabus-name');
+const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+let syllabusToDelete = null;
+
+// Handle drag and drop
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('dragover');
+});
+
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('dragover');
+});
+
+uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        handleFile(files[0]);
+    }
+});
+
+// Handle click to upload
+uploadArea.addEventListener('click', () => {
+    fileInput.click();
+});
+
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        handleFile(e.target.files[0]);
+    }
+});
+
+async function handleFile(file) {
+    if (!file.type.includes('pdf')) {
+        alert('Please upload a PDF file');
+        return;
+    }
+    
+    // Check if an operation is already in progress
+    if (!ProgressTracker.startOperation('upload_file')) {
+        return;
+    }
+    
+    // Update progress - initial
+    ProgressTracker.updateProgress(10, "Uploading file");
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', file.name.replace('.pdf', ''));
+
+    try {
+        const response = await fetch('/syllabi', {
+            method: 'POST',
+            body: formData
+        });
+        
+        // Update progress - processing
+        ProgressTracker.updateProgress(40, "Extracting content from PDF");
+
+        if (response.ok) {
+            // Update progress - finalizing
+            ProgressTracker.updateProgress(75, "Processing syllabus content");
+            
+            // Complete successfully after a short delay to show the progress
+            setTimeout(() => {
+                ProgressTracker.endOperation(true, "Syllabus uploaded successfully!");
+                window.location.reload();
+            }, 800);
+        } else {
+            const data = await response.json();
+            ProgressTracker.endOperation(false, data.error || 'Error uploading file');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        ProgressTracker.endOperation(false, 'Error uploading file');
+    }
+}
+
+function deleteSyllabus(id, title) {
+    syllabusToDelete = id;
+    syllabusName.textContent = title;
+    confirmModal.classList.remove('hidden');
+    
+    // Update the confirm button to delete this specific syllabus
+    confirmDeleteBtn.onclick = confirmDelete;
+}
+
+function closeDeleteModal() {
+    confirmModal.classList.add('hidden');
+    syllabusToDelete = null;
+}
+
+async function confirmDelete() {
+    if (!syllabusToDelete) return;
+    
+    try {
+        const response = await fetch(`/syllabi/${syllabusToDelete}/delete`, {
+            method: 'DELETE',
+        });
+        
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Error deleting syllabus');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error deleting syllabus');
+    } finally {
+        closeDeleteModal();
+    }
+}
+
+// Close modal if clicking outside
+window.addEventListener('click', (e) => {
+    if (e.target === confirmModal) {
+        closeDeleteModal();
+    }
+});
+</script>
+{% endblock %}
+{% endblock %} 

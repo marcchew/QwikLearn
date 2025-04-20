@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<style>
+    .sidebar {
+        position: sticky;
+        top: 1rem;
+        height: calc(100vh - 2rem);
+        overflow-y: auto;
+        scrollbar-width: thin;
+    }
+    .sidebar::-webkit-scrollbar {
+        width: 6px;
+    }
+    .sidebar::-webkit-scrollbar-thumb {
+        background-color: rgba(156, 163, 175, 0.5);
+        border-radius: 3px;
+    }
+    .topic-link {
+        display: block;
+        padding: 0.75rem 1rem;
+        font-weight: 600;
+        color: #4B5563;
+        transition: all 0.2s ease;
+    }
+    .topic-link:hover {
+        background-color: #F3F4F6;
+        color: #111827;
+    }
+    .topic-link.active {
+        background-color: #E5E7EB;
+        color: #111827;
+        border-left: 3px solid #4F46E5;
+    }
+    .subtopic-link {
+        display: block;
+        padding: 0.5rem 1rem 0.5rem 2rem;
+        color: #6B7280;
+        transition: all 0.2s ease;
+    }
+    .subtopic-link:hover {
+        background-color: #F3F4F6;
+        color: #111827;
+    }
+    .subtopic-link.active {
+        background-color: #EEF2FF;
+        color: #4F46E5;
+        font-weight: 500;
+    }
+    .note-content-container {
+        min-height: 80vh;
+    }
+    .note-section {
+        display: none;
+    }
+    .note-section.active {
+        display: block;
+    }
+    .markdown-content {
+        line-height: 1.6;
+    }
+    .markdown-content h1 {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 1rem;
+    }
+    .markdown-content h2 {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin: 1.5rem 0 1rem;
+    }
+    .markdown-content h3 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin: 1.25rem 0 0.75rem;
+    }
+    .markdown-content p {
+        margin-bottom: 1rem;
+    }
+    .markdown-content ul, .markdown-content ol {
+        margin-bottom: 1rem;
+        padding-left: 1.5rem;
+    }
+    .markdown-content li {
+        margin-bottom: 0.5rem;
+    }
+    .markdown-content code {
+        background-color: #F3F4F6;
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.25rem;
+        font-family: monospace;
+    }
+    .markdown-content pre {
+        background-color: #F3F4F6;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        overflow-x: auto;
+        margin-bottom: 1rem;
+    }
+    .key-points, .examples {
+        margin-top: 1rem;
+        padding: 1rem;
+        background-color: #F9FAFB;
+        border-radius: 0.5rem;
+        border-left: 4px solid #4F46E5;
+    }
+    .summary {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background-color: #EEF2FF;
+        border-radius: 0.5rem;
+        font-style: italic;
+    }
+    .action-buttons {
+        margin-top: 1rem;
+        display: flex;
+        gap: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">{{ syllabus.title }}</h1>
+        <div class="flex space-x-4">
+            <button onclick="generateNotes()" 
+                    class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors text-sm">
+                Generate Notes
+            </button>
+            <button onclick="generateAssignment()" 
+                    class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm">
+                Generate Assignment
+            </button>
+            {% if syllabus.file_path %}
+            <a href="{{ url_for('download_syllabus', id=syllabus.id) }}" 
+               class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                Download PDF
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="flex flex-col lg:flex-row gap-6">
+        <!-- Sidebar Navigation -->
+        <div class="lg:w-1/4">
+            <div class="sidebar bg-white rounded-lg shadow p-4">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Topics</h2>
+                
+                <div class="topics-list">
+                    {% set topics = {} %}
+                    {% for note in syllabus.notes %}
+                        {% if note.topic not in topics %}
+                            {% set _ = topics.update({note.topic: {}}) %}
+                        {% endif %}
+                        {% if note.subtopic not in topics[note.topic] %}
+                            {% set _ = topics[note.topic].update({note.subtopic: []}) %}
+                        {% endif %}
+                        {% set _ = topics[note.topic][note.subtopic].append(note) %}
+                    {% endfor %}
+                    
+                    {% set first_topic = true %}
+                    {% for topic, subtopics in topics.items() %}
+                    <div class="topic-group mb-2">
+                        <a href="#" class="topic-link{% if first_topic %} active{% endif %}" 
+                           data-topic="{{ topic|replace(' ', '_') }}">
+                            {{ topic }}
+                        </a>
+                        <div class="subtopics" id="subtopics-{{ topic|replace(' ', '_') }}" 
+                             {% if not first_topic %}style="display: none;"{% endif %}>
+                            {% set first_subtopic = true %}
+                            {% for subtopic, notes in subtopics.items() %}
+                            <a href="#" class="subtopic-link{% if first_topic and first_subtopic %} active{% endif %}" 
+                               data-topic="{{ topic|replace(' ', '_') }}" 
+                               data-subtopic="{{ subtopic|replace(' ', '_') }}">
+                                {{ subtopic }}
+                            </a>
+                            {% set first_subtopic = false %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% set first_topic = false %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content Area -->
+        <div class="lg:w-3/4">
+            <div class="note-content-container bg-white rounded-lg shadow p-6">
+                {% if not syllabus.notes %}
+                <div class="text-center text-gray-500 py-12">
+                    <svg class="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h3 class="mt-2 text-xl font-medium text-gray-900">No notes generated yet</h3>
+                    <p class="mt-1 text-sm text-gray-500">Click on "Generate Notes" to create study notes from this syllabus.</p>
+                </div>
+                {% else %}
+                    {% set first_topic = true %}
+                    {% for topic, subtopics in topics.items() %}
+                        {% set first_subtopic = true %}
+                        {% for subtopic, notes in subtopics.items() %}
+                            {% for note in notes %}
+                            <div class="note-section markdown-content{% if first_topic and first_subtopic and loop.first %} active{% endif %}" 
+                                 id="note-{{ topic|replace(' ', '_') }}-{{ subtopic|replace(' ', '_') }}">
+                                {{ note.content|markdown|safe }}
+                            </div>
+                            {% endfor %}
+                            {% set first_subtopic = false %}
+                        {% endfor %}
+                        {% set first_topic = false %}
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_scripts %}
+<script>
+// Handle topic and subtopic navigation
+document.addEventListener('DOMContentLoaded', function() {
+    const topicLinks = document.querySelectorAll('.topic-link');
+    const subtopicLinks = document.querySelectorAll('.subtopic-link');
+    
+    // Topic click handler
+    topicLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Get topic ID
+            const topicId = this.dataset.topic;
+            
+            // Remove active class from all topic links
+            topicLinks.forEach(tl => tl.classList.remove('active'));
+            
+            // Add active class to clicked topic
+            this.classList.add('active');
+            
+            // Hide all subtopics sections
+            document.querySelectorAll('.subtopics').forEach(section => {
+                section.style.display = 'none';
+            });
+            
+            // Show current subtopics
+            document.getElementById(`subtopics-${topicId}`).style.display = 'block';
+            
+            // Activate first subtopic if available
+            const firstSubtopic = document.querySelector(`.subtopic-link[data-topic="${topicId}"]`);
+            if (firstSubtopic) {
+                firstSubtopic.click();
+            }
+        });
+    });
+    
+    // Subtopic click handler
+    subtopicLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Get topic and subtopic IDs
+            const topicId = this.dataset.topic;
+            const subtopicId = this.dataset.subtopic;
+            
+            // Remove active class from all subtopic links
+            subtopicLinks.forEach(stl => stl.classList.remove('active'));
+            
+            // Add active class to clicked subtopic
+            this.classList.add('active');
+            
+            // Hide all note sections
+            document.querySelectorAll('.note-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Show current note section
+            const noteSection = document.getElementById(`note-${topicId}-${subtopicId}`);
+            if (noteSection) {
+                noteSection.classList.add('active');
+            }
+        });
+    });
+});
+
+async function generateNotes() {
+    // Check if an operation is already in progress
+    if (!ProgressTracker.startOperation('generate_notes')) {
+        return;
+    }
+    
+    try {
+        // Update progress - initial
+        ProgressTracker.updateProgress(20, "Processing syllabus content");
+        
+        const response = await fetch('/generate_notes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                syllabus_id: {{ syllabus.id }}
+            })
+        });
+        
+        // Update progress - midway
+        ProgressTracker.updateProgress(60, "Creating structured notes");
+        
+        if (response.ok) {
+            // Complete successfully
+            ProgressTracker.endOperation(true, "Notes generated successfully!");
+            window.location.reload();
+        } else {
+            const data = await response.json();
+            ProgressTracker.endOperation(false, data.error || 'Error generating notes');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        ProgressTracker.endOperation(false, 'Error generating notes. Please try again.');
+    }
+}
+
+async function generateAssignment() {
+    // Check if an operation is already in progress
+    if (!ProgressTracker.startOperation('generate_assignment')) {
+        return;
+    }
+    
+    try {
+        // Update progress - initial
+        ProgressTracker.updateProgress(15, "Analyzing syllabus content");
+        
+        const response = await fetch('/generate_assignment', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                syllabus_id: {{ syllabus.id }}
+            })
+        });
+        
+        // Update progress - midway
+        ProgressTracker.updateProgress(50, "Creating questions and answers");
+        
+        if (response.ok) {
+            // Update progress before completion
+            ProgressTracker.updateProgress(85, "Finalizing assignment");
+            
+            // Complete successfully
+            ProgressTracker.endOperation(true, "Assignment generated successfully!");
+            window.location.href = "/assignments";
+        } else {
+            const data = await response.json();
+            ProgressTracker.endOperation(false, data.error || 'Error generating assignment');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        ProgressTracker.endOperation(false, 'Error generating assignment. Please try again.');
+    }
+}
+</script>
+{% endblock %}
+{% endblock %} 

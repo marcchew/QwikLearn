@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <h1 class="text-3xl font-bold text-gray-800 mb-8">Welcome, {{ current_user.username }}!</h1>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Quick Stats -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold">Your Syllabi</h2>
+                <i class="fas fa-book text-indigo-600 text-2xl"></i>
+            </div>
+            <p class="text-3xl font-bold text-gray-800">{{ current_user.syllabi|length }}</p>
+            <a href="{{ url_for('syllabi') }}" class="text-indigo-600 hover:text-indigo-800 text-sm">View all →</a>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold">Assignments</h2>
+                <i class="fas fa-tasks text-green-600 text-2xl"></i>
+            </div>
+            <p class="text-3xl font-bold text-gray-800">
+                {{ assignments|selectattr('completed', 'eq', false)|list|length }}
+                <span class="text-sm font-normal text-gray-600">pending</span>
+            </p>
+            <a href="{{ url_for('assignments') }}" class="text-indigo-600 hover:text-indigo-800 text-sm">View all →</a>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold">Study Progress</h2>
+                <i class="fas fa-chart-line text-blue-600 text-2xl"></i>
+            </div>
+            <p class="text-3xl font-bold text-gray-800">
+                {{ (assignments|selectattr('completed', 'eq', true)|list|length / 
+                    assignments|length * 100)|round|int if assignments|length > 0 else 0 }}%
+            </p>
+            <span class="text-sm text-gray-600">Completion rate</span>
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-xl font-semibold mb-4">Recent Activity</h2>
+        
+        {% if recent_assignments %}
+            <div class="space-y-4">
+                {% for assignment in recent_assignments %}
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div>
+                        <h3 class="font-semibold">{{ assignment.title }}</h3>
+                        <p class="text-sm text-gray-600">Due: {{ assignment.due_date.strftime('%Y-%m-%d') }}</p>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-sm 
+                        {% if assignment.completed %}
+                            bg-green-100 text-green-700
+                        {% else %}
+                            bg-yellow-100 text-yellow-700
+                        {% endif %}">
+                        {{ 'Completed' if assignment.completed else 'Pending' }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-gray-600">No recent activity</p>
+        {% endif %}
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Quick Actions</h2>
+            <div class="space-y-2">
+                <a href="{{ url_for('syllabi') }}" 
+                   class="block w-full text-left px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-plus-circle text-indigo-600 mr-2"></i>
+                    Upload New Syllabus
+                </a>
+                <a href="{{ url_for('assignments') }}"
+                   class="block w-full text-left px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-clipboard-check text-green-600 mr-2"></i>
+                    View Assignments
+                </a>
+                <a href="{{ url_for('chat_page') }}"
+                   class="block w-full text-left px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-comments text-blue-600 mr-2"></i>
+                    Chat with AI Assistant
+                </a>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Study Tips</h2>
+            <div class="prose prose-indigo">
+                <ul class="list-disc list-inside text-gray-600 space-y-2">
+                    <li>Review your generated notes regularly</li>
+                    <li>Complete assignments before their due dates</li>
+                    <li>Use the AI chat for clarification on difficult topics</li>
+                    <li>Keep your syllabus content up to date</li>
+                    <li>Track your progress and celebrate achievements</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
